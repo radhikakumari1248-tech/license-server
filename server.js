@@ -1,112 +1,79 @@
 const express = require('express');
 const cors = require('cors');
-const mysql = require('mysql2/promise');
-require('dotenv').config();
+const fs = require('fs'); // Built-in module to read files
 
 const app = express();
-
-// Middleware
 app.use(cors());
-app.use(express.json()); // Allows parsing JSON from POST requests
+app.use(express.json());
 
 // ==========================================
-// DATABASE CONNECTION
-// ==========================================
-// Render will look for these variables in your "Environment" settings.
-// If variables are missing, it falls back to 'mock-db' for safe testing.
-const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'mock-db',
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-});
-
-// ==========================================
-// 1. HOME ROUTE (Fixes "Cannot GET /")
+// HOME ROUTE
 // ==========================================
 app.get('/', (req, res) => {
-    res.status(200).send('✅ LeadShield License Server is Online & Running!');
+    res.status(200).send('✅ JSON License Server is Running!');
 });
 
 // ==========================================
-// 2. LICENSE VERIFICATION LOGIC
+// THE CHECK LOGIC
 // ==========================================
-// We use a shared function so both GET and POST work
-async function checkLicense(key, res) {
-    if (!key) {
-        return res.status(400).json({ status: 'error', message: 'No license key provided' });
-    }
+function checkLicense(key, res) {
+    console.log(`Checking key: ${key}`);
 
-    console.log(`🔍 Checking key: ${key}`);
-
-    // --- MODE A: TEST MODE (If no DB is connected) ---
-    if (!process.env.DB_HOST || process.env.DB_HOST === 'mock-db') {
-        console.log("⚠️ Running in Test Mode (No Database Connected)");
-        if (key === 'LSP-TEST-KEY' || key === 'LSP-642ACF55') {
-            return res.json({
-                status: 'active',
-                expires: '2026-12-31',
-                message: 'License Valid (Test Mode)',
-                hardware_id: null
-            });
-        } else {
-            return res.json({ status: 'invalid', message: 'Invalid Key (Test Mode)' });
-        }
-    }
-
-    // --- MODE B: REAL DATABASE CHECK ---
+    // 1. Read the JSON file
+    let licenses = [];
     try {
-        const [rows] = await pool.query('SELECT * FROM licenses WHERE license_key = ?', [key]);
+        const data = fs.readFileSync('licenses.json', 'utf8');
+        licenses = JSON.parse(data);
+    } catch (err) {
+        console.error("Error reading license file:", err);
+        return res.status(500).json({ status: 'error', message: 'Server Configuration Error' });
+    }
 
-        if (rows.length > 0) {
-            const license = rows[0];
+    // 2. Find the key
+    const foundLicense = licenses.find(item => item.key === key);
 
-            // Check Expiry
-            const today = new Date();
-            const expiryDate = new Date(license.expiry_date);
+    if (foundLicense) {
+        // Check Expiry
+        const today = new Date();
+        const expiryDate = new Date(foundLicense.expiry);
 
-            if (expiryDate < today) {
-                return res.json({ status: 'expired', expires: license.expiry_date });
-            }
-
-            // License is Valid
-            return res.json({
-                status: 'active',
-                expires: license.expiry_date,
-                hardware_id: license.hardware_id || null
-            });
-        } else {
-            return res.json({ status: 'invalid', message: 'Key not found in database' });
+        if (expiryDate < today) {
+            return res.json({ status: 'expired', expires: foundLicense.expiry });
         }
-    } catch (error) {
-        console.error("❌ Database Error:", error);
-        return res.status(500).json({ status: 'error', message: 'Internal Server Error' });
+
+        // Check Status
+        if (foundLicense.status !== 'active') {
+            return res.json({ status: 'banned', message: 'License has been banned' });
+        }
+
+        // Success!
+        return res.json({
+            status: 'active',
+            expires: foundLicense.expiry,
+            hardware_id: foundLicense.hardware_id
+        });
+    } else {
+        return res.json({ status: 'invalid', message: 'Key not found' });
     }
 }
 
 // ==========================================
-// 3. API ROUTES
+// ROUTES
 // ==========================================
-
-// Handle GET requests (Browser / Simple Checks)
 app.get('/verify', (req, res) => {
     const key = req.query.key || req.query.license_key;
     checkLicense(key, res);
 });
 
-// Handle POST requests (Secure / App Checks)
 app.post('/verify', (req, res) => {
     const key = req.body.key || req.body.license_key;
     checkLicense(key, res);
 });
 
 // ==========================================
-// START SERVER
+// START
 // ==========================================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🚀 JSON Server running on port ${PORT}`);
 });
