@@ -1,20 +1,24 @@
-[
-  {
-    "key": "BF7AF4F7E2F54619",
-    "expiry": "2026-02-17",
-    "status": "active",
-    "hardware_id": null
-  },
-  {
-    "key": "06B8B12E2442E9B8",
-    "expiry": "2026-04-18",
-    "status": "active",
-    "hardware_id": null
-  },
-   {
-    "key": "9D9393737EFDB2A6",
-    "expiry": "2026-02-28",
-    "status": "active",
-    "hardware_id": null
-  }
-]
+{
+    "0": {
+        "key": "BF7AF4F7E2F54619",
+        "expiry": "2026-02-17",
+        "status": "active",
+        "hardware_id": null
+    },
+    "1": {
+        "key": "06B8B12E2442E9B8",
+        "expiry": "2026-04-18",
+        "status": "active",
+        "hardware_id": null
+    },
+    "2": {
+        "key": "9D9393737EFDB2A6",
+        "expiry": "2026-02-28",
+        "status": "active",
+        "hardware_id": null
+    },
+    "DA762C3B5A973D3F": {
+        "status": "active",
+        "expires": "2026-03-06 11:07:52"
+    }
+}
